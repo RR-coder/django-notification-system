@@ -1,67 +1,50 @@
 # Django Notification System
 
-A Django REST API for managing users, classes, and notifications.
+Django REST API for managing students, teachers, classes and notifications.
 
-This project lets different types of users send notifications based on their role. It also includes Telegram OTP login and a GitHub Actions workflow for running tests and checking the deployment step.
+## What this project does
 
-## Features
-
-- JWT based authentication
-- Admin, Teacher and Student roles
-- Class management
-- Telegram OTP login
-- OTP expiry and resend cooldown
-- Role based notification permissions
-- Notification templates
-- Send notifications to selected users or groups
-- Search notifications from the last 7 days
-- GitHub Actions CI
-- Telegram notification for CI success and failure
-
-## Tech Stack
-
-- Python
-- Django
-- Django REST Framework
-- Simple JWT
-- SQLite
-- Telegram Bot API
-- GitHub Actions
+- Has three roles: Admin, Teacher and Student
+- Admin can create classes and assign teachers and students
+- Users can log in using JWT authentication
+- Users can receive a login OTP through Telegram
+- Admin can create notification templates and decide which roles can use them
+- Teachers can notify selected students or all students in their assigned classes
+- Admin can send notifications to any user
+- Students can notify one student from their own class, with a one notification per hour limit
+- Users can search their own notifications from the last 7 days
+- GitHub Actions runs the tests and mock deployment
+- Telegram messages are sent to admins when the CI workflow succeeds or fails
 
 ## Project Structure
 
-The project is split into a few Django apps:
-
-- accounts - handles users, authentication and Telegram OTP
-- classes - handles classes and user assignments
-- notifications - handles notification templates and notifications
-- config - contains the main Django settings and URL configuration
-- .github/workflows - contains the GitHub Actions CI workflow
-- manage.py - Django management file
-- requirements.txt - project dependencies
+```text
+accounts/       users, roles and Telegram OTP
+classes/        classes and teacher/student assignments
+notifications/  templates and notifications
+config/         Django settings and URLs
+.github/        GitHub Actions workflow
+manage.py       Django management command
+requirements.txt project dependencies
+```
 
 ## Setup
 
-Clone the repository and move into the project folder:
+Clone the project:
 
 ```bash
 git clone https://github.com/RR-coder/django-notification-system.git
 cd django-notification-system
 ```
 
-Create a virtual environment:
+Create and activate a virtual environment:
 
 ```bash
 python -m venv .venv
-```
-
-Activate it on macOS/Linux:
-
-```bash
 source .venv/bin/activate
 ```
 
-Install the required packages:
+Install dependencies:
 
 ```bash
 pip install -r requirements.txt
@@ -73,143 +56,76 @@ Run migrations:
 python manage.py migrate
 ```
 
-Start the development server:
+Run the server:
 
 ```bash
 python manage.py runserver
 ```
 
-The API runs at `http://127.0.0.1:8000/` when the development server is started.
-
 ## Environment Variables
 
-The Telegram bot token is kept outside the source code.
+Telegram is used for login OTPs and CI notifications.
 
-```text
-TELEGRAM_BOT_TOKEN=your_bot_token
-```
-
-For GitHub Actions, these repository secrets are used:
+The following values are kept as environment variables or GitHub repository secrets:
 
 ```text
 TELEGRAM_BOT_TOKEN
 TELEGRAM_ADMIN_CHAT_ID
 ```
 
-The secrets can be added from Settings -> Secrets and variables -> Actions in the GitHub repository.
+The bot token should not be committed to the repository.
 
 ## Authentication
 
-The API uses JWT authentication.
+JWT is used for API authentication.
 
-### Get Token
+Main authentication endpoints:
 
 ```text
 POST /api/auth/token/
-```
-
-Example request:
-
-```json
-{
-    "username": "student1",
-    "password": "your_password"
-}
-```
-
-### Refresh Token
-
-```text
 POST /api/auth/token/refresh/
+GET  /api/me/
 ```
 
-### Current User
-
-```text
-GET /api/me/
-```
-
-Protected endpoints require the JWT access token.
-
-## Telegram OTP
-
-Telegram OTP is an additional login option. A Telegram chat ID needs to be linked to the user account before an OTP can be requested.
-
-### Request OTP
+Telegram OTP endpoints:
 
 ```text
 POST /api/auth/telegram/request-otp/
-```
-
-Example:
-
-```json
-{
-    "username": "student1",
-    "password": "your_password"
-}
-```
-
-The OTP is sent to the user's linked Telegram chat.
-
-### Verify OTP
-
-```text
 POST /api/auth/telegram/verify-otp/
 ```
 
-Example:
+The OTP is sent to the Telegram chat linked to the user. OTPs expire after a short period and cannot be reused.
 
-```json
-{
-    "username": "student1",
-    "otp": "123456"
-}
-```
-
-The OTP has an expiry time, resend cooldown and limited verification attempts. A successfully used OTP cannot be used again.
-
-## User Roles
-
-There are three main roles in the project.
+## Roles and Permissions
 
 ### Admin
 
-Admins have the highest level of access. They can manage classes, users and notification related features and can send notifications to selected users or groups.
+Admin can manage users and classes, assign teachers and students, manage notification templates and send notifications to users.
 
 ### Teacher
 
-Teachers can work with students from their assigned classes and send notifications to those students.
+A teacher can send notifications to selected students or all students from classes assigned to that teacher.
 
 ### Student
 
-Students have more limited notification permissions. A student can send a notification to another student from the same class, subject to the limits implemented in the API.
+A student can send a notification to one other student from the same class. Students are limited to one notification in an hour.
 
-The backend checks the permissions instead of relying only on the frontend.
+These checks are handled in the backend so they cannot be bypassed by changing a frontend request.
 
-## Classes
+## Notification Templates
 
-Classes are used to connect teachers and students. Admin users can manage class assignments.
+Notification templates are created by admins.
 
-Teacher and student notification permissions are based on these class relationships.
+Each template has allowed roles. When a user tries to send a notification, the API checks whether the user's role is allowed to use the selected template.
 
-## Notifications
-
-Notifications are handled through:
-
-```text
-/api/notifications/
-```
-
-Notification templates are handled through:
+Main endpoints:
 
 ```text
 /api/notification-templates/
+/api/notifications/
 ```
 
-Before sending a notification, the API checks the sender's role and class relationship.
-
-Notifications can also be searched using the `search` query parameter. The notification history is limited to the recent 7 days according to the project requirements.
+Notifications can be searched using the search parameter. Only the user's own notifications from the previous 7 days are returned.
 
 Example:
 
@@ -217,92 +133,58 @@ Example:
 /api/notifications/?search=exam
 ```
 
-## Main API Endpoints
+## CI/CD
 
-```text
-Authentication
-POST /api/auth/token/
-POST /api/auth/token/refresh/
-POST /api/auth/telegram/request-otp/
-POST /api/auth/telegram/verify-otp/
-GET  /api/me/
-
-Classes
-/api/classes/
-
-Notification Templates
-/api/notification-templates/
-
-Notifications
-/api/notifications/
-```
-
-## Testing
-
-Run the Django system check:
-
-```bash
-python manage.py check
-```
-
-Run the tests:
-
-```bash
-python manage.py test
-```
-
-The tests currently cover the Telegram OTP flow, including requesting an OTP, checking the Telegram chat, verifying the OTP, preventing OTP reuse and the resend cooldown.
-
-## GitHub Actions
-
-The CI workflow is stored in:
+The GitHub Actions workflow is located at:
 
 ```text
 .github/workflows/ci.yml
 ```
 
-It runs on pushes and pull requests and can also be started manually from GitHub Actions.
-
 The workflow:
 
-1. Sets up Python and installs dependencies.
-2. Runs Django system checks.
-3. Runs the test suite.
-4. Collects static files as part of a mock deployment step.
-5. Sends a Telegram message when the workflow succeeds or fails.
+1. Installs the project dependencies.
+2. Runs Django checks.
+3. Runs the tests.
+4. Runs collectstatic as a mock deployment step.
+5. Sends a Telegram notification to the admin chat when the workflow succeeds or fails.
 
-The deployment step is only a mock for now because there is no production server connected to the project.
+The workflow can also be started manually using the GitHub Actions Run workflow option.
 
-## Design Decisions
+There is no real hosting deployment in this project. The deployment step is mocked as allowed by the assignment.
 
-The project is split into separate Django apps so that users/authentication, classes and notifications are easier to manage separately.
+## Testing
 
-JWT is used for API authentication because the application is built as a REST API. Telegram OTP is kept as a separate authentication flow and returns JWT tokens after successful verification.
+Run Django checks:
 
-Role and class based permission checks are handled on the backend. This is important because frontend checks alone would not prevent a user from sending a modified API request.
+```bash
+python manage.py check
+```
 
-SQLite is used because it is simple for local development and is enough for the scope of this project. A production setup could use PostgreSQL or another production database.
+Run tests:
 
-The CI deployment stage is mocked because setting up an actual production server is outside the scope of the project.
+```bash
+python manage.py test
+```
 
-## Security Notes
+The current test suite covers the Telegram OTP flow and its basic restrictions.
 
-Do not commit Telegram bot tokens, passwords or other secrets to the repository.
+## Main Decisions
 
-The project uses GitHub repository secrets for Telegram CI notifications. Local environment files, the SQLite database, virtual environments and generated static files are excluded through `.gitignore`.
+Django REST Framework was used because the project is mainly an API backend.
 
-For a real production deployment, settings like `DEBUG`, `ALLOWED_HOSTS`, HTTPS and a production database would need to be configured properly.
+JWT was used for API authentication so protected API requests can be authenticated without using Django session authentication.
+
+Telegram chat IDs are stored against users so an OTP is sent to the correct user's Telegram chat.
+
+Role and class checks are done on the backend. This keeps notification permissions enforced even when requests are made directly to the API.
+
+SQLite is used for local development because it is simple to set up. A production database can be used later if the project is deployed.
+
+GitHub Actions uses a mock deployment because real hosting was not required. The tests and checks must pass before the deployment step is reached.
 
 ## Known Limitations
 
-- The deployment step in GitHub Actions is currently a mock deployment.
-- SQLite is used for local development.
-- Telegram configuration is required for Telegram OTP and CI notifications.
-
-## Author
-
-RR-coder
-
-## Repository
-
-https://github.com/RR-coder/django-notification-system
+- The deployment is mocked and there is no production server.
+- SQLite is intended for local development.
+- Telegram configuration is required for Telegram OTP and CI Telegram messages.
