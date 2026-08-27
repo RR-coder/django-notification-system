@@ -31,6 +31,8 @@ jobs:
 
       - name: Mock deployment
         run: |
+          echo "TEST FAILURE - temporary notification test"
+          exit 1
           echo "Starting mock deployment..."
           echo "Collecting static files..."
           python manage.py collectstatic --noinput
