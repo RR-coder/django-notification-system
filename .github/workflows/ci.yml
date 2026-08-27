@@ -1,0 +1,64 @@
+name: Django CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Run Django checks
+        run: python manage.py check
+
+      - name: Run tests
+        run: python manage.py test
+
+      - name: Mock deployment
+        run: |
+          echo "Starting mock deployment..."
+          echo "Collecting static files..."
+          python manage.py collectstatic --noinput
+          echo "Mock deployment completed successfully."
+
+      - name: Notify Telegram admins on success
+        if: success()
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_ADMIN_CHAT_ID: ${{ secrets.TELEGRAM_ADMIN_CHAT_ID }}
+        run: |
+          if [ -n "$TELEGRAM_BOT_TOKEN" ] && [ -n "$TELEGRAM_ADMIN_CHAT_ID" ]; then
+            curl -sS -X POST "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
+              -d "chat_id=${TELEGRAM_ADMIN_CHAT_ID}" \
+              --data-urlencode "text=✅ Django Notification System CI passed and mock deployment completed successfully."
+          else
+            echo "Telegram secrets are not configured; skipping notification."
+          fi
+
+      - name: Notify Telegram admins on failure
+        if: failure()
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_ADMIN_CHAT_ID: ${{ secrets.TELEGRAM_ADMIN_CHAT_ID }}
+        run: |
+          if [ -n "$TELEGRAM_BOT_TOKEN" ] && [ -n "$TELEGRAM_ADMIN_CHAT_ID" ]; then
+            curl -sS -X POST "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
+              -d "chat_id=${TELEGRAM_ADMIN_CHAT_ID}" \
+              --data-urlencode "text=❌ Django Notification System CI or mock deployment failed. Check the GitHub Actions run."
+          else
+            echo "Telegram secrets are not configured; skipping notification."
+          fi
