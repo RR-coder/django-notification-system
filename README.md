@@ -167,7 +167,7 @@ Run tests:
 python manage.py test
 ```
 
-The current test suite covers the Telegram OTP flow and its basic restrictions.
+The test suite covers Telegram OTP, notifications and the main permission rules.
 
 ## Main Decisions
 
